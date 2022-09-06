@@ -1,0 +1,4 @@
+**__pycache__/
+**/app_status
+**/temp
+**.ipynb_checkpoints
