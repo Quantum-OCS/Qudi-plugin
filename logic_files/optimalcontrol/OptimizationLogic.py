@@ -2,9 +2,8 @@
 This is the logic class for the optimization
 """
 # QuOCS imports
-from quocslib.utils.dynamicimport import dynamic_import
-from quocslib.communication.AllInOneCommunication import AllInOneCommunication
-from quocslib.utils.BestDump import BestDump
+from quocslib.Optimizer import Optimizer
+
 from quocspyside2interface.logic.OptimizationBasic import OptimizationBasic
 
 from logic.optimalcontrol.HandleExit import HandleExitLogic
@@ -47,7 +46,7 @@ class OptimizationLogic(LogicBase, OptimizationBasic):
         # self._mutex = QtCore.QMutex()
         self._threadlock = Mutex()
         self._running = True
-        self.optimizer_obj = None
+        self.optimization_obj = None
         return
 
     def on_activate(self):
@@ -83,11 +82,11 @@ class OptimizationLogic(LogicBase, OptimizationBasic):
         """ Check if the figure of is updated """
         return self.is_fom_computed
 
-    def get_FoM(self, pulses, timegrids, parameters):
+    def get_FoM(self, pulses, parameters, timegrids):
         """ Send the controls to the worker controls and wait the figure of merit from the worker fom """
         # Send the control to the worker controls
         if self.handle_exit_obj.is_user_running:
-            self.send_controls(pulses, timegrids, parameters)
+            self.send_controls(pulses, parameters, timegrids)
         else:
             return {"FoM": self.fom_max, "status_code": -1}
         # Send a signal to enable the waiting of the figure of merit
@@ -106,8 +105,8 @@ class OptimizationLogic(LogicBase, OptimizationBasic):
         self.load_optimization_dictionary_signal.emit(opti_comm_dict)
 
     def start_optimization(self, opti_comm_dict):
-        if self.optimizer_obj is not None:
-            del self.optimizer_obj
+        if self.optimization_obj is not None:
+            del self.optimization_obj
         if self.handle_exit_obj.is_user_running:
             self.log.warning("An optimization is still running. I will wait 5 seconds and then try to abort it")
             time.sleep(5.0)
@@ -117,42 +116,36 @@ class OptimizationLogic(LogicBase, OptimizationBasic):
         self.is_running_signal.emit(True)
         self.log.info("Waiting few seconds before the optimization starts")
         time.sleep(5.0)
+
         # Creation of the basic objects for the optimizer
         optimization_dictionary = opti_comm_dict["optimization_dictionary"]
-        interface_job_name = optimization_dictionary["optimization_client_name"]
-        communication_obj = AllInOneCommunication(
-            interface_job_name=interface_job_name, fom_obj=self.fom_obj, dump_attribute=BestDump,
-            handle_exit_obj=self.handle_exit_obj,
-            comm_signals_list=[self.message_label_signal,
-                               self.fom_plot_signal,
-                               self.controls_update_signal])
-        # Get the optimizer attribute
-        optimizer_attribute = dynamic_import(
-            attribute=optimization_dictionary.setdefault("opti_algorithm_attribute", None),
-            module_name=optimization_dictionary.setdefault("opti_algorithm_module", None),
-            class_name=optimization_dictionary.setdefault("opti_algorithm_class", None))
-        optimizer_obj = optimizer_attribute(optimization_dict=optimization_dictionary,
-                                            communication_obj=communication_obj)
-        # Start the optimizer procedure
+
+        comm_signals_list = [self.message_label_signal,
+                             self.fom_plot_signal,
+                             self.controls_update_signal]
+
+        # Define Optimizer
+        optimization_obj = Optimizer(optimization_dictionary, self.fom_obj, 
+                                     comm_signals_list=comm_signals_list)
+
         try:
-            optimizer_obj.begin()
-            optimizer_obj.run()
+            optimization_obj.execute()
         except Exception as ex:
             self.log.error("Unhandled exception: {}".format(ex.args))
             self.log.error("Something went wrong during the optimization process")
-        finally:
-            optimizer_obj.end()
+
+
         self.message_label_signal.emit("The optimization is finished")
         # Send a signal to conclude the optimization
         self.is_running_signal.emit(False)
         # Save the optimizer obj for further analysis in the jupyter notebook
-        self.optimizer_obj = optimizer_obj
+        self.optimization_obj = optimization_obj
         return
 
-    def send_controls(self, pulses_list, timegrids_list, parameters_list):
+    def send_controls(self, pulses_list, parameters_list, timegrids_list):
         """ Send the controls to the worker controls """
         self.log.debug("Sending controls to the worker controls")
-        self.send_controls_signal.emit(pulses_list, timegrids_list, parameters_list)
+        self.send_controls_signal.emit(pulses_list, parameters_list, timegrids_list)
         return
 
     def on_deactivate(self):
