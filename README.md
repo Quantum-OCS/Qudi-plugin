@@ -12,7 +12,7 @@ and ```logic``` folders of your Qudi installation, respectively.
 
 3) Run Qudi.
 
-4) Select "Load configuration" from the Menu or the icon in the top left corner if the Qudi UI. 
+4) Select "Load configuration" from the Menu or the icon in the top left corner of the Qudi UI. 
 Load the ```qudi_configuration.cfg``` configuration file provided in this repo.
 (You can also include the neccessary parts in your custom Qudi configuration 
 so that the modules show up in the interface and can be loaded.)
