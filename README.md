@@ -1,4 +1,5 @@
-# Qudi-plugin for QuOCS
+<p  align='center'> <img src="./logo/logo_quocs_color.png" width="400" /></p>
+<h1 align='center'>Qudi-plugin for QuOCS</h1>
 
 This repo contains the neccessary files to run QuOCS in [Qudi](https://github.com/Ulm-IQO/qudi).
 
